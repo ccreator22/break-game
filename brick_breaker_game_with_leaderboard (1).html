@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>벽돌깨기 Neo - Brick Breaker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Glassmorphism panel styles */
+        .glass-panel {
+            background: rgba(22, 27, 46, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-btn {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(168, 85, 247, 0.8));
+            transition: all 0.25s ease;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+
+        .glass-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.7);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 1), rgba(168, 85, 247, 1));
+        }
+
+        .glass-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Canvas glowing frame */
+        .canvas-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+            border: 2px solid rgba(139, 92, 246, 0.3);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        /* Leaderboard custom scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.5);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(168, 85, 247, 0.8);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 text-gray-100 select-none">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-4xl text-center mb-3 sm:mb-6">
+        <h1 class="text-3xl sm:text-5xl font-black font-orbitron tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-400 to-pink-500 drop-shadow-[0_2px_10px_rgba(168,85,247,0.5)]">
+            NEON BREAKOUT
+        </h1>
+        <p class="text-xs sm:text-sm text-cyan-300/80 mt-1">네온 벽돌 깨기 & 실시간 순위 대결</p>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        
+        <!-- Left Side: Game Canvas Area -->
+        <section class="lg:col-span-2 flex flex-col items-center">
+            
+            <!-- Game Info Bar -->
+            <div class="w-full max-w-[600px] glass-panel rounded-t-xl p-3 flex justify-between items-center text-sm font-orbitron border-b border-indigo-500/30">
+                <div class="flex items-center space-x-2">
+                    <span class="text-cyan-400"><i class="fa-solid fa-user"></i></span>
+                    <span id="displayPlayerName" class="font-bold text-gray-200">게스트</span>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div>
+                        <span class="text-gray-400 text-xs block">SCORE</span>
+                        <span id="scoreText" class="text-xl font-extrabold text-yellow-400">0</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400 text-xs block">LIVES</span>
+                        <div id="livesContainer" class="flex space-x-1 text-red-500 text-sm mt-1">
+                            <i class="fa-solid fa-heart"></i>
+                            <i class="fa-solid fa-heart"></i>
+                            <i class="fa-solid fa-heart"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="text-gray-400 text-xs block">STAGE</span>
+                        <span id="stageText" class="text-xl font-extrabold text-indigo-400">1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Wrapper -->
+            <div class="canvas-container w-full max-w-[600px] aspect-[4/3] bg-slate-950/80 relative">
+                <canvas id="gameCanvas" class="w-full h-full block cursor-none"></canvas>
+
+                <!-- Overlay 1: Login Modal -->
+                <div id="loginModal" class="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 glass-panel">
+                    <div class="w-full max-w-xs text-center space-y-5">
+                        <div class="text-4xl text-cyan-400 animate-bounce"><i class="fa-solid fa-gamepad"></i></div>
+                        <h2 class="text-2xl font-bold font-orbitron text-white">플레이어 로그인</h2>
+                        <p class="text-xs text-gray-300">순위표에 등재될 사용자 이름을 입력하세요!</p>
+                        
+                        <div>
+                            <input type="text" id="usernameInput" maxlength="12" placeholder="이름 (최대 12자)"
+                                class="w-full px-4 py-3 bg-slate-900/80 border border-indigo-500/50 rounded-xl text-center text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent">
+                        </div>
+                        
+                        <button id="startGameBtn" class="w-full py-3 rounded-xl font-bold font-orbitron text-white glass-btn flex items-center justify-center space-x-2">
+                            <span>게임 시작하기</span>
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Overlay 2: Game Over / Victory Modal -->
+                <div id="gameOverModal" class="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 glass-panel hidden">
+                    <div class="w-full max-w-sm text-center space-y-4">
+                        <div id="modalIcon" class="text-5xl text-yellow-400">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <h2 id="modalTitle" class="text-3xl font-black font-orbitron text-white">GAME OVER</h2>
+                        <p id="modalSub" class="text-sm text-gray-300">최종 점수를 달성했습니다!</p>
+
+                        <div class="bg-slate-900/80 rounded-xl p-4 my-2 border border-slate-700">
+                            <span class="text-xs text-gray-400 block">FINAL SCORE</span>
+                            <span id="finalScoreText" class="text-4xl font-extrabold text-cyan-400 font-orbitron">0</span>
+                        </div>
+
+                        <div class="flex space-x-3">
+                            <button id="restartBtn" class="flex-1 py-3 rounded-xl font-bold font-orbitron text-white glass-btn">
+                                다시 하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overlay 3: Pause / Ready state prompt -->
+                <div id="startPrompt" class="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none hidden">
+                    <div class="bg-slate-900/90 border border-indigo-500/40 rounded-xl px-6 py-3 text-center animate-pulse">
+                        <p class="text-sm font-semibold text-cyan-300">화면을 터치/클릭하거나 스페이스바를 눌러 공을 발사하세요!</p>
+                        <p class="text-xs text-gray-400 mt-1">방향키(←, →) 또는 마우스/터치로 패들을 조작합니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Info / Touch Helper Buttons for mobile -->
+            <div class="w-full max-w-[600px] mt-3 flex justify-between items-center text-xs text-gray-400 px-2">
+                <div><i class="fa-solid fa-keyboard mr-1"></i> 조작: 좌우 방향키 / 터치 드래그</div>
+                <div id="firebaseStatus" class="flex items-center space-x-1 text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span class="text-[11px]" id="dbStatusText">실시간 데이터베이스 준비 완료</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Side: Leaderboard Panel -->
+        <section class="w-full glass-panel rounded-2xl p-5 border border-indigo-500/20 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-indigo-500/30 pb-3 mb-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-ranking-star text-xl text-yellow-400"></i>
+                    <h3 class="text-lg font-bold font-orbitron text-white">명예의 전당</h3>
+                </div>
+                <span class="text-xs px-2 py-1 bg-indigo-950/80 border border-indigo-500/40 rounded-full text-indigo-300 font-orbitron">TOP 10</span>
+            </div>
+
+            <!-- Leaderboard List -->
+            <div id="leaderboardList" class="space-y-2.5 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+                <!-- Skeleton Loading State -->
+                <div class="animate-pulse flex items-center justify-between p-3 bg-slate-800/40 rounded-xl">
+                    <div class="h-4 bg-slate-700 rounded w-1/3"></div>
+                    <div class="h-4 bg-slate-700 rounded w-1/4"></div>
+                </div>
+                <div class="animate-pulse flex items-center justify-between p-3 bg-slate-800/40 rounded-xl">
+                    <div class="h-4 bg-slate-700 rounded w-1/3"></div>
+                    <div class="h-4 bg-slate-700 rounded w-1/4"></div>
+                </div>
+            </div>
+
+            <!-- Instructions Box -->
+            <div class="mt-5 p-3 bg-indigo-950/40 border border-indigo-500/20 rounded-xl text-xs text-gray-300 space-y-1.5">
+                <div class="font-bold text-cyan-300 flex items-center space-x-1">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>게임 팁</span>
+                </div>
+                <p>• 빨간색 벽돌은 파괴 시 더 높은 점수를 줍니다.</p>
+                <p>• 벽돌 파괴 시 떨어지는 아이템을 획득하면 특수 효과가 발동됩니다!</p>
+                <p>• 모든 벽돌을 깨면 다음 스테이지로 진출합니다.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Firebase SDK Imports (v11 Standard Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+        // Firebase Config (Placeholder provided per prompt requirements)
+        const firebaseConfig = {
+  apiKey: "AIzaSyCbwJoHF7vHOB_nxIcvRAy-9VuZJjsmToI",
+  authDomain: "game-80918.firebaseapp.com",
+  databaseURL: "https://game-80918-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "game-80918",
+  storageBucket: "game-80918.firebasestorage.app",
+  messagingSenderId: "673641137920",
+  appId: "1:673641137920:web:c138bba7caab9e390115e5",
+  measurementId: "G-WP2VEE0W0R"
+};
+        let db = null;
+        let isFirebaseReal = false;
+
+        // Initialize Firebase safely
+        try {
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.databaseURL !== "YOUR_DATABASE_URL") {
+                const app = initializeApp(firebaseConfig);
+                db = getDatabase(app);
+                isFirebaseReal = true;
+                document.getElementById('dbStatusText').textContent = "Firebase Realtime DB 연결됨";
+            } else {
+                console.warn("Firebase config using placeholders. Falling back to local simulation mode.");
+                document.getElementById('dbStatusText').textContent = "미리보기 모드 (로컬 가상 순위표)";
+            }
+        } catch (e) {
+            console.error("Firebase init failed, switching to local mode", e);
+            document.getElementById('dbStatusText').textContent = "로컬 모드 동작 중";
+        }
+
+        // Leaderboard Local Storage Fallback Data
+        const LOCAL_STORAGE_KEY = "NEON_BRICK_LEADERBOARD_V1";
+        const DEFAULT_SCORES = [
+            { name: "NeonKing", score: 3200, date: Date.now() - 86400000 * 3 },
+            { name: "BrickSlayer", score: 2500, date: Date.now() - 86400000 * 2 },
+            { name: "SpeedRunner", score: 1800, date: Date.now() - 86400000 * 1 },
+            { name: "ArcadeHero", score: 1200, date: Date.now() - 43200000 },
+            { name: "RetroGamer", score: 950, date: Date.now() - 21600000 }
+        ];
+
+        // Save Score Function
+        window.saveGameScore = async function(playerName, score) {
+            if (score <= 0) return;
+
+            const scoreData = {
+                name: playerName || "익명",
+                score: score,
+                timestamp: Date.now()
+            };
+
+            if (isFirebaseReal && db) {
+                try {
+                    const scoresRef = ref(db, 'scores');
+                    const newScoreRef = push(scoresRef);
+                    await set(newScoreRef, scoreData);
+                    console.log("Score saved to Firebase Database");
+                } catch (err) {
+                    console.error("Failed to save score to Firebase:", err);
+                    saveToLocalStorage(scoreData);
+                }
+            } else {
+                saveToLocalStorage(scoreData);
+            }
+        };
+
+        function saveToLocalStorage(data) {
+            let currentScores = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "null");
+            if (!currentScores) {
+                currentScores = [...DEFAULT_SCORES];
+            }
+            currentScores.push(data);
+            currentScores.sort((a, b) => b.score - a.score);
+            currentScores = currentScores.slice(0, 20); // Keep top 20
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(currentScores));
+            renderLeaderboard(currentScores.slice(0, 10));
+        }
+
+        // Listen for Realtime Scores
+        window.initLeaderboardListener = function() {
+            if (isFirebaseReal && db) {
+                const scoresRef = ref(db, 'scores');
+                const topScoresQuery = query(scoresRef, orderByChild('score'), limitToLast(10));
+
+                onValue(topScoresQuery, (snapshot) => {
+                    const data = snapshot.val();
+                    const scoresList = [];
+                    if (data) {
+                        Object.keys(data).forEach(key => {
+                            scoresList.push(data[key]);
+                        });
+                        // Sort descending
+                        scoresList.sort((a, b) => b.score - a.score);
+                    }
+                    renderLeaderboard(scoresList);
+                }, (error) => {
+                    console.error("Firebase realtime listener error:", error);
+                    loadLocalLeaderboard();
+                });
+            } else {
+                loadLocalLeaderboard();
+            }
+        };
+
+        function loadLocalLeaderboard() {
+            let currentScores = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "null");
+            if (!currentScores) {
+                currentScores = [...DEFAULT_SCORES];
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(currentScores));
+            }
+            currentScores.sort((a, b) => b.score - a.score);
+            renderLeaderboard(currentScores.slice(0, 10));
+        }
+
+        // Render Leaderboard UI
+        function renderLeaderboard(scores) {
+            const container = document.getElementById('leaderboardList');
+            if (!container) return;
+
+            if (!scores || scores.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-400 text-sm">
+                        아직 등록된 점수가 없습니다.<br>첫 번째 주인공이 되어보세요!
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = scores.map((item, index) => {
+                let rankBadge = `<span class="w-6 h-6 flex items-center justify-center font-extrabold text-xs rounded-full bg-slate-800 text-gray-300">${index + 1}</span>`;
+                let rankStyle = "bg-slate-900/60 border-slate-800";
+
+                if (index === 0) {
+                    rankBadge = `<span class="w-6 h-6 flex items-center justify-center font-extrabold text-xs rounded-full bg-yellow-400 text-slate-950 shadow-[0_0_10px_rgba(250,204,21,0.8)]"><i class="fa-solid fa-crown"></i></span>`;
+                    rankStyle = "bg-yellow-500/10 border-yellow-500/30 text-yellow-200";
+                } else if (index === 1) {
+                    rankBadge = `<span class="w-6 h-6 flex items-center justify-center font-extrabold text-xs rounded-full bg-gray-300 text-slate-950">2</span>`;
+                    rankStyle = "bg-slate-300/10 border-gray-400/30 text-gray-200";
+                } else if (index === 2) {
+                    rankBadge = `<span class="w-6 h-6 flex items-center justify-center font-extrabold text-xs rounded-full bg-amber-600 text-white">3</span>`;
+                    rankStyle = "bg-amber-600/10 border-amber-600/30 text-amber-200";
+                }
+
+                return `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl border ${rankStyle} transition-all duration-200 hover:scale-[1.01]">
+                        <div class="flex items-center space-x-3 truncate pr-2">
+                            ${rankBadge}
+                            <span class="font-bold text-sm truncate max-w-[110px] sm:max-w-[130px]">${escapeHtml(item.name)}</span>
+                        </div>
+                        <span class="font-orbitron font-extrabold text-sm text-cyan-400">${item.score.toLocaleString()} P</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Initialize listener on load
+        window.addEventListener('DOMContentLoaded', () => {
+            window.initLeaderboardListener();
+        });
+    </script>
+
+    <!-- Main Game Physics & Engine Code -->
+    <script>
+        // Game State Variables
+        let playerName = "";
+        let score = 0;
+        let lives = 3;
+        let stage = 1;
+        let isGameRunning = false;
+        let isBallAttached = true;
+
+        // Canvas & Context Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Target Resolution (Virtual Dimensions for scaling)
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // Key Press State
+        const keys = {
+            left: false,
+            right: false
+        };
+
+        // Player Paddle Object
+        const paddle = {
+            width: 120,
+            height: 16,
+            x: CANVAS_WIDTH / 2 - 60,
+            y: CANVAS_HEIGHT - 35,
+            speed: 9,
+            dx: 0,
+            glow: '#a855f7'
+        };
+
+        // Ball Object
+        const ball = {
+            x: CANVAS_WIDTH / 2,
+            y: paddle.y - 10,
+            radius: 8,
+            speed: 7,
+            dx: 5,
+            dy: -5,
+            glow: '#38bdf8'
+        };
+
+        // Bricks Settings
+        const brickConfig = {
+            rowCount: 5,
+            colCount: 8,
+            padding: 10,
+            offsetTop: 60,
+            offsetLeft: 35,
+            height: 22
+        };
+        // Calculated dynamic width
+        brickConfig.width = Math.floor((CANVAS_WIDTH - (brickConfig.offsetLeft * 2) - (brickConfig.padding * (brickConfig.colCount - 1))) / brickConfig.colCount);
+
+        let bricks = [];
+        let particles = [];
+        let powerUps = [];
+
+        // Brick Color Palette according to rows
+        const rowColors = [
+            { bg: '#ef4444', border: '#f87171', score: 50 }, // Red
+            { bg: '#f97316', border: '#fb923c', score: 40 }, // Orange
+            { bg: '#eab308', border: '#fde047', score: 30 }, // Yellow
+            { bg: '#10b981', border: '#34d399', score: 20 }, // Green
+            { bg: '#06b6d4', border: '#22d3ee', score: 10 }  // Cyan
+        ];
+
+        // Particle Class for Destruction Effects
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 3 + 2;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.015;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // PowerUp Item Class
+        class PowerUp {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'expand', 'life', 'slow'
+                this.radius = 10;
+                this.speed = 2.5;
+            }
+
+            update() {
+                this.y += this.speed;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                let color = '#38bdf8';
+                let icon = 'P';
+                if (this.type === 'expand') { color = '#a855f7'; icon = 'W'; }
+                if (this.type === 'life') { color = '#ef4444'; icon = '+'; }
+                if (this.type === 'slow') { color = '#eab308'; icon = 'S'; }
+
+                ctx.fillStyle = color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px Orbitron, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(icon, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        function initBricks() {
+            bricks = [];
+            for (let r = 0; r < brickConfig.rowCount; r++) {
+                bricks[r] = [];
+                for (let c = 0; c < brickConfig.colCount; c++) {
+                    const x = c * (brickConfig.width + brickConfig.padding) + brickConfig.offsetLeft;
+                    const y = r * (brickConfig.height + brickConfig.padding) + brickConfig.offsetTop;
+                    
+                    // Higher stages add multi-hit bricks
+                    let hp = 1;
+                    if (stage >= 2 && r === 0) hp = 2; // Top row requires 2 hits in stage 2+
+
+                    bricks[r][c] = {
+                        x: x,
+                        y: y,
+                        status: hp,
+                        maxHp: hp,
+                        colorInfo: rowColors[r % rowColors.length]
+                    };
+                }
+            }
+        }
+
+        function createParticles(x, y, color, count = 12) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // Reset Ball to Paddle Center
+        function resetBall() {
+            isBallAttached = true;
+            ball.x = paddle.x + paddle.width / 2;
+            ball.y = paddle.y - ball.radius - 2;
+            const angle = (Math.random() * 60 - 30) * (Math.PI / 180); // random launch angle (-30 to +30 deg)
+            const baseSpeed = 6 + (stage * 0.5);
+            ball.speed = baseSpeed;
+            ball.dx = baseSpeed * Math.sin(angle);
+            ball.dy = -baseSpeed * Math.cos(angle);
+            document.getElementById('startPrompt').classList.remove('hidden');
+        }
+
+        // Launch Ball from Paddle
+        function launchBall() {
+            if (isBallAttached && isGameRunning) {
+                isBallAttached = false;
+                document.getElementById('startPrompt').classList.add('hidden');
+            }
+        }
+
+        // Update UI elements
+        function updateUI() {
+            document.getElementById('scoreText').textContent = score.toLocaleString();
+            document.getElementById('stageText').textContent = stage;
+            
+            // Lives hearts display
+            const livesContainer = document.getElementById('livesContainer');
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < lives; i++) {
+                const heart = document.createElement('i');
+                heart.className = 'fa-solid fa-heart';
+                livesContainer.appendChild(heart);
+            }
+        }
+
+        // Check Victory
+        function checkStageClear() {
+            let cleared = true;
+            for (let r = 0; r < brickConfig.rowCount; r++) {
+                for (let c = 0; c < brickConfig.colCount; c++) {
+                    if (bricks[r][c].status > 0) {
+                        cleared = false;
+                        break;
+                    }
+                }
+            }
+
+            if (cleared) {
+                stage++;
+                score += 500; // Stage clear bonus
+                updateUI();
+                initBricks();
+                resetBall();
+            }
+        }
+
+        function collisionDetection() {
+            for (let r = 0; r < brickConfig.rowCount; r++) {
+                for (let c = 0; c < brickConfig.colCount; c++) {
+                    const b = bricks[r][c];
+                    if (b.status > 0) {
+                        // AABB Collision check with ball
+                        if (
+                            ball.x + ball.radius > b.x &&
+                            ball.x - ball.radius < b.x + brickConfig.width &&
+                            ball.y + ball.radius > b.y &&
+                            ball.y - ball.radius < b.y + brickConfig.height
+                        ) {
+                            ball.dy = -ball.dy;
+                            b.status--;
+
+                            // Score & FX
+                            if (b.status === 0) {
+                                score += b.colorInfo.score;
+                                createParticles(b.x + brickConfig.width / 2, b.y + brickConfig.height / 2, b.colorInfo.bg);
+
+                                // Chance to drop power-up (15% chance)
+                                if (Math.random() < 0.15) {
+                                    const types = ['expand', 'life', 'slow'];
+                                    const selectedType = types[Math.floor(Math.random() * types.length)];
+                                    powerUps.push(new PowerUp(b.x + brickConfig.width / 2, b.y + brickConfig.height / 2, selectedType));
+                                }
+                            } else {
+                                // Hit effect for multi-hp bricks
+                                createParticles(ball.x, ball.y, '#ffffff', 5);
+                            }
+
+                            updateUI();
+                            checkStageClear();
+                            return; // Handle one collision per frame
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update Game Frame logic
+        function update() {
+            if (!isGameRunning) return;
+
+            // Move Paddle via keyboard
+            if (keys.left) {
+                paddle.x -= paddle.speed;
+            }
+            if (keys.right) {
+                paddle.x += paddle.speed;
+            }
+
+            // Paddle boundary check
+            if (paddle.x < 10) paddle.x = 10;
+            if (paddle.x + paddle.width > CANVAS_WIDTH - 10) paddle.x = CANVAS_WIDTH - 10 - paddle.width;
+
+            // If ball is attached to paddle
+            if (isBallAttached) {
+                ball.x = paddle.x + paddle.width / 2;
+                ball.y = paddle.y - ball.radius - 2;
+                return;
+            }
+
+            // Move Ball
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // Wall Collisions
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;
+                ball.dx = -ball.dx;
+            } else if (ball.x + ball.radius > CANVAS_WIDTH) {
+                ball.x = CANVAS_WIDTH - ball.radius;
+                ball.dx = -ball.dx;
+            }
+
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.dy = -ball.dy;
+            }
+
+            // Paddle Collision
+            if (
+                ball.y + ball.radius >= paddle.y &&
+                ball.y - ball.radius <= paddle.y + paddle.height &&
+                ball.x >= paddle.x &&
+                ball.x <= paddle.x + paddle.width
+            ) {
+                // Calculate bounce angle based on hit location
+                const hitPoint = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2); // -1 to 1
+                const maxAngle = (60 * Math.PI) / 180;
+                const angle = hitPoint * maxAngle;
+                const currentSpeed = Math.hypot(ball.dx, ball.dy);
+
+                ball.dx = currentSpeed * Math.sin(angle);
+                ball.dy = -currentSpeed * Math.cos(angle);
+                ball.y = paddle.y - ball.radius - 1; // Prevent sticking
+
+                // Paddle bounce spark
+                createParticles(ball.x, ball.y, '#c084fc', 6);
+            }
+
+            // Bottom Boundary Check (Life Lost)
+            if (ball.y - ball.radius > CANVAS_HEIGHT) {
+                lives--;
+                updateUI();
+
+                if (lives <= 0) {
+                    endGame(false);
+                } else {
+                    resetBall();
+                }
+            }
+
+            // Collisions with Bricks
+            collisionDetection();
+
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Update PowerUps
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                const p = powerUps[i];
+                p.update();
+
+                // Check Paddle catch
+                if (
+                    p.y + p.radius >= paddle.y &&
+                    p.y - p.radius <= paddle.y + paddle.height &&
+                    p.x >= paddle.x &&
+                    p.x <= paddle.x + paddle.width
+                ) {
+                    // Apply Effect
+                    if (p.type === 'expand') {
+                        paddle.width = Math.min(200, paddle.width + 30);
+                        setTimeout(() => paddle.width = 120, 10000); // 10s duration
+                    } else if (p.type === 'life') {
+                        if (lives < 5) lives++;
+                        updateUI();
+                    } else if (p.type === 'slow') {
+                        ball.dx *= 0.7;
+                        ball.dy *= 0.7;
+                    }
+
+                    createParticles(p.x, p.y, '#22c55e', 10);
+                    powerUps.splice(i, 1);
+                    continue;
+                }
+
+                // Remove out of bounds
+                if (p.y > CANVAS_HEIGHT) {
+                    powerUps.splice(i, 1);
+                }
+            }
+        }
+
+        function draw() {
+            // Clear canvas background with slight opacity for motion blur effect
+            ctx.fillStyle = '#090a0f';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Draw Background Subtle Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < CANVAS_WIDTH; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < CANVAS_HEIGHT; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // Draw Bricks
+            for (let r = 0; r < brickConfig.rowCount; r++) {
+                for (let c = 0; c < brickConfig.colCount; c++) {
+                    const b = bricks[r][c];
+                    if (b.status > 0) {
+                        ctx.save();
+                        ctx.fillStyle = b.colorInfo.bg;
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = b.colorInfo.bg;
+                        
+                        // Round rectangle brick
+                        const radius = 4;
+                        ctx.beginPath();
+                        ctx.roundRect(b.x, b.y, brickConfig.width, brickConfig.height, radius);
+                        ctx.fill();
+
+                        // Border accent
+                        ctx.strokeStyle = b.colorInfo.border;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                        // If multi-hp brick, draw hp indicator
+                        if (b.maxHp > 1 && b.status > 1) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 10px Orbitron, sans-serif';
+                            ctx.fillText('★', b.x + brickConfig.width / 2 - 4, b.y + brickConfig.height / 2 + 3);
+                        }
+
+                        ctx.restore();
+                    }
+                }
+            }
+
+            // Draw Paddle
+            ctx.save();
+            ctx.fillStyle = paddle.glow;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = paddle.glow;
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 8);
+            ctx.fill();
+
+            // Gradient highlight on paddle
+            const padGrad = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.height);
+            padGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+            padGrad.addColorStop(1, 'rgba(168, 85, 247, 0.2)');
+            ctx.fillStyle = padGrad;
+            ctx.fill();
+            ctx.restore();
+
+            // Draw Ball
+            ctx.save();
+            ctx.fillStyle = ball.glow;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = ball.glow;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Draw PowerUps
+            powerUps.forEach(p => p.draw(ctx));
+
+            // Draw Particles
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        // Main Animation Loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startNewGame() {
+            score = 0;
+            lives = 3;
+            stage = 1;
+            paddle.width = 120;
+            paddle.x = CANVAS_WIDTH / 2 - 60;
+            isGameRunning = true;
+
+            updateUI();
+            initBricks();
+            resetBall();
+
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('displayPlayerName').textContent = playerName;
+        }
+
+        function endGame(isWin) {
+            isGameRunning = false;
+
+            const gameOverModal = document.getElementById('gameOverModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalSub = document.getElementById('modalSub');
+            const modalIcon = document.getElementById('modalIcon');
+            const finalScoreText = document.getElementById('finalScoreText');
+
+            finalScoreText.textContent = score.toLocaleString();
+
+            if (isWin) {
+                modalTitle.textContent = "VICTORY!";
+                modalTitle.className = "text-3xl font-black font-orbitron text-emerald-400";
+                modalSub.textContent = "축하합니다! 모든 스테이지를 클리어하셨습니다!";
+                modalIcon.innerHTML = `<i class="fa-solid fa-trophy text-yellow-400"></i>`;
+            } else {
+                modalTitle.textContent = "GAME OVER";
+                modalTitle.className = "text-3xl font-black font-orbitron text-pink-500";
+                modalSub.textContent = "아쉽게 실패했습니다. 다시 도전해보세요!";
+                modalIcon.innerHTML = `<i class="fa-solid fa-heart-crack text-pink-500"></i>`;
+            }
+
+            gameOverModal.classList.remove('hidden');
+
+            // Save Score to Firebase / Local Storage
+            if (window.saveGameScore) {
+                window.saveGameScore(playerName, score);
+            }
+        }
+
+        // Key down / up listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'Left') {
+                keys.left = true;
+            } else if (e.key === 'ArrowRight' || e.key === 'Right') {
+                keys.right = true;
+            } else if (e.code === 'Space') {
+                launchBall();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'Left') {
+                keys.left = false;
+            } else if (e.key === 'ArrowRight' || e.key === 'Right') {
+                keys.right = false;
+            }
+        });
+
+        // Mouse & Touch Controls
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const scaleX = CANVAS_WIDTH / rect.width;
+            return (clientX - rect.left) * scaleX;
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isGameRunning) return;
+            const mouseX = getCanvasCoordinates(e);
+            paddle.x = mouseX - paddle.width / 2;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isGameRunning) return;
+            e.preventDefault();
+            const touchX = getCanvasCoordinates(e);
+            paddle.x = touchX - paddle.width / 2;
+        }, { passive: false });
+
+        canvas.addEventListener('click', () => {
+            if (isGameRunning) {
+                launchBall();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (isGameRunning) {
+                launchBall();
+            }
+        }, { passive: true });
+
+        // Start Button Click Event
+        document.getElementById('startGameBtn').addEventListener('click', () => {
+            const input = document.getElementById('usernameInput');
+            const val = input.value.trim();
+            
+            if (!val) {
+                input.focus();
+                input.classList.add('ring-2', 'ring-red-500');
+                setTimeout(() => input.classList.remove('ring-2', 'ring-red-500'), 1000);
+                return;
+            }
+
+            playerName = val;
+            startNewGame();
+        });
+
+        // Press Enter to start on login input
+        document.getElementById('usernameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('startGameBtn').click();
+            }
+        });
+
+        // Restart Button Click Event
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            startNewGame();
+        });
+
+        // Initialize Engine loop on window load
+        window.onload = function() {
+            initBricks();
+            draw();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
